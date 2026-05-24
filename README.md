@@ -6,7 +6,7 @@ A RESTful API built with **Spring Boot 3.x** and **Java 17** for managing person
 
 | Component | Technology | Why |
 |-----------|-----------|-----|
-| Language | Java 17 | LTS, required by assignment |
+| Language | Java 21 | LTS, required by assignment |
 | Framework | Spring Boot 3.2 | Industry standard, rapid REST API development |
 | Security | Spring Security (session-based) | Assignment spec: session cookies |
 | Database | H2 (in-memory) | Zero setup, sufficient for demo |
