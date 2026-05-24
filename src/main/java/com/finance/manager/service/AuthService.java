@@ -9,14 +9,13 @@ import com.finance.manager.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-/**
- * Handles user registration, login, logout.
- * Session management: on login, we store the userId in the HTTP session.
- * All other endpoints retrieve the userId from session to identify the user.
- */
+import java.util.Collections;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -27,14 +26,13 @@ public class AuthService {
     public static final String SESSION_USER_ID = "USER_ID";
 
     public RegisterResponse register(RegisterRequest request) {
-        // Check for duplicate email
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userRepository.existsByUsername(request.getUsername().toLowerCase().trim())) {
             throw new DuplicateResourceException("User with this email already exists");
         }
 
         User user = new User();
         user.setUsername(request.getUsername().toLowerCase().trim());
-        user.setPassword(passwordEncoder.encode(request.getPassword())); // BCrypt hash
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setPhoneNumber(request.getPhoneNumber());
 
@@ -50,9 +48,22 @@ public class AuthService {
             throw new UnauthorizedException("Invalid username or password");
         }
 
-        // Create session and store userId — this is what makes subsequent requests authenticated
+        // Invalidate any existing session first to prevent session fixation
+        HttpSession oldSession = httpRequest.getSession(false);
+        if (oldSession != null) {
+            oldSession.invalidate();
+        }
+
+        // Create new session
         HttpSession session = httpRequest.getSession(true);
         session.setAttribute(SESSION_USER_ID, user.getId());
+
+        // Also set Spring Security context for this request
+        UsernamePasswordAuthenticationToken auth =
+            new UsernamePasswordAuthenticationToken(
+                user.getUsername(), null, Collections.emptyList()
+            );
+        SecurityContextHolder.getContext().setAuthentication(auth);
 
         return new MessageResponse("Login successful");
     }
@@ -60,15 +71,12 @@ public class AuthService {
     public MessageResponse logout(HttpServletRequest httpRequest) {
         HttpSession session = httpRequest.getSession(false);
         if (session != null) {
-            session.invalidate(); // Expire and remove session
+            session.invalidate();
         }
+        SecurityContextHolder.clearContext();
         return new MessageResponse("Logout successful");
     }
 
-    /**
-     * Helper: get authenticated user from session.
-     * Called by all protected services to identify current user.
-     */
     public User getCurrentUser(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute(SESSION_USER_ID) == null) {
