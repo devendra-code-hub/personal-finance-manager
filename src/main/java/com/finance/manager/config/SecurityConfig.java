@@ -12,18 +12,13 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-/**
- * Security config using Spring Security 6.x (Spring Boot 3.x).
- *
- * Why session-based instead of JWT?
- * The assignment explicitly requires session-based auth with secure cookies.
- * JWT would also work technically but doesn't follow the spec.
- *
- * Why BCrypt?
- * Industry standard for password hashing — adaptive cost factor,
- * built-in salt, resistant to rainbow table attacks.
- */
+import java.util.Arrays;
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -31,19 +26,19 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Disabled for REST API (stateless clients like curl/test scripts)
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                .maximumSessions(-1)
             )
+            // Allow session cookie to work behind Render's HTTPS proxy
+            .securityContext(context -> context.requireExplicitSave(false))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints: register and login don't need authentication
                 .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
-                // H2 console for local debugging
                 .requestMatchers("/h2-console/**").permitAll()
-                // All other endpoints require valid session
                 .anyRequest().authenticated()
             )
-            // Return 401 JSON instead of Spring's default redirect to /login page
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -58,16 +53,24 @@ public class SecurityConfig {
                         new ErrorResponse("Access denied", 403));
                 })
             )
-            // Allow H2 console frames (dev only)
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();
     }
 
-    /**
-     * BCryptPasswordEncoder: industry-standard password hashing.
-     * Never store plain text passwords.
-     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        // Critical: allow credentials (cookies) to be sent cross-origin
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
