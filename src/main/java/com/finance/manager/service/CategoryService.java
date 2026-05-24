@@ -2,8 +2,7 @@ package com.finance.manager.service;
 
 import com.finance.manager.dto.request.CreateCategoryRequest;
 import com.finance.manager.dto.response.ResponseDtos.*;
-import com.finance.manager.entity.Category;
-import com.finance.manager.entity.User;
+import com.finance.manager.entity.*;
 import com.finance.manager.exception.AppExceptions.*;
 import com.finance.manager.repository.CategoryRepository;
 import com.finance.manager.repository.TransactionRepository;
@@ -29,7 +28,6 @@ public class CategoryService {
     }
 
     public CategoryResponse createCategory(CreateCategoryRequest request, User user) {
-        // Check for duplicate name for this user
         if (categoryRepository.existsByNameAndUser(request.getName(), user)) {
             throw new DuplicateResourceException("Category with this name already exists");
         }
@@ -55,15 +53,12 @@ public class CategoryService {
             throw new ForbiddenException("Cannot delete default categories");
         }
 
-        // 400: category is in use by transactions — soft delete instead of hard delete
+        // 400: category is currently referenced by transactions — cannot delete
         if (transactionRepository.existsByCategory(category)) {
-            // Soft delete: mark as deleted but keep in DB for historical transaction data
-            category.setDeleted(true);
-            categoryRepository.save(category);
-        } else {
-            categoryRepository.delete(category);
+            throw new BadRequestException("Cannot delete category that is currently in use by transactions");
         }
 
+        categoryRepository.delete(category);
         return new MessageResponse("Category deleted successfully");
     }
 

@@ -24,12 +24,10 @@ public class TransactionService {
     private final CategoryRepository categoryRepository;
 
     public TransactionResponse createTransaction(CreateTransactionRequest request, User user) {
-        // Validate date is not in the future
         if (request.getDate().isAfter(LocalDate.now())) {
             throw new BadRequestException("Transaction date cannot be in the future");
         }
 
-        // Resolve category by name — must be visible to this user
         Category category = categoryRepository.findByNameAndUser(request.getCategory(), user)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + request.getCategory()));
 
@@ -44,11 +42,19 @@ public class TransactionService {
         return toResponse(saved);
     }
 
-    public TransactionListResponse getTransactions(User user, LocalDate startDate, LocalDate endDate, Long categoryId) {
+    public TransactionListResponse getTransactions(User user, LocalDate startDate, LocalDate endDate,
+                                                    Long categoryId, String categoryName) {
         Category filterCategory = null;
+
+        // Support filtering by categoryId
         if (categoryId != null) {
             filterCategory = categoryRepository.findById(categoryId)
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        }
+        // Support filtering by category name
+        else if (categoryName != null && !categoryName.isEmpty()) {
+            filterCategory = categoryRepository.findByNameAndUser(categoryName, user)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + categoryName));
         }
 
         List<TransactionResponse> transactions = transactionRepository
@@ -61,25 +67,21 @@ public class TransactionService {
     }
 
     public TransactionResponse updateTransaction(Long id, UpdateTransactionRequest request, User user) {
-        // findByIdAndUser enforces data isolation — users can't update other users' transactions
         Transaction transaction = transactionRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found"));
 
         if (request.getAmount() != null) {
             transaction.setAmount(request.getAmount());
         }
-
         if (request.getCategory() != null) {
             Category category = categoryRepository.findByNameAndUser(request.getCategory(), user)
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + request.getCategory()));
             transaction.setCategory(category);
         }
-
         if (request.getDescription() != null) {
             transaction.setDescription(request.getDescription());
         }
-
-        // Note: date is intentionally NOT updatable per assignment spec
+        // date is intentionally NOT updatable
 
         Transaction updated = transactionRepository.save(transaction);
         return toResponse(updated);
@@ -88,18 +90,14 @@ public class TransactionService {
     public MessageResponse deleteTransaction(Long id, User user) {
         Transaction transaction = transactionRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found"));
-
         transactionRepository.delete(transaction);
         return new MessageResponse("Transaction deleted successfully");
     }
 
     public TransactionResponse toResponse(Transaction t) {
         return new TransactionResponse(
-            t.getId(),
-            t.getAmount(),
-            t.getDate(),
-            t.getCategory().getName(),
-            t.getDescription(),
+            t.getId(), t.getAmount(), t.getDate(),
+            t.getCategory().getName(), t.getDescription(),
             t.getCategory().getType()
         );
     }

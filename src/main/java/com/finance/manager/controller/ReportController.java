@@ -2,6 +2,7 @@ package com.finance.manager.controller;
 
 import com.finance.manager.dto.response.ResponseDtos.*;
 import com.finance.manager.entity.User;
+import com.finance.manager.exception.AppExceptions.BadRequestException;
 import com.finance.manager.service.AuthService;
 import com.finance.manager.service.ReportService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +23,10 @@ public class ReportController {
             @PathVariable int year,
             @PathVariable int month,
             HttpServletRequest request) {
+        // Validate month range (1-12)
+        if (month < 1 || month > 12) {
+            throw new BadRequestException("Month must be between 1 and 12");
+        }
         User user = authService.getCurrentUser(request);
         return ResponseEntity.ok(reportService.getMonthlyReport(user, year, month));
     }

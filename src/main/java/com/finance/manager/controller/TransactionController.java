@@ -38,9 +38,11 @@ public class TransactionController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) Long categoryId,
+            // Also support filtering by category name (used by test script)
+            @RequestParam(required = false) String category,
             HttpServletRequest httpRequest) {
         User user = authService.getCurrentUser(httpRequest);
-        return ResponseEntity.ok(transactionService.getTransactions(user, startDate, endDate, categoryId));
+        return ResponseEntity.ok(transactionService.getTransactions(user, startDate, endDate, categoryId, category));
     }
 
     @PutMapping("/{id}")
