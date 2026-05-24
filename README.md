@@ -1,6 +1,6 @@
 # Personal Finance Manager API
 
-A RESTful API built with **Spring Boot 3.x** and **Java 17** for managing personal finances — transactions, categories, savings goals, and reports.
+A RESTful API built with **Spring Boot 3.x** and **Java 21** for managing personal finances — transactions, categories, savings goals, and reports.
 
 ## Tech Stack
 
